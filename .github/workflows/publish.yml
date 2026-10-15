@@ -1,0 +1,36 @@
+name: Publish release
+
+# Pushing a `publish` branch (LN2-Manager-v<version>-windows.zip, LN2Manager.exe.sha256,
+# version.txt, notes.md) turns it into a GitHub release, then deletes the branch.
+on:
+  push:
+    branches: [publish]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: publish
+
+      - name: Verify the program and publish it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < version.txt)"
+          zip="LN2-Manager-v${version}-windows.zip"
+          unzip -q "$zip" -d extracted
+          cp "extracted/LN2 Manager/LN2Manager.exe" LN2Manager.exe
+          sha256sum -c LN2Manager.exe.sha256
+          gh release create "v${version}" LN2Manager.exe LN2Manager.exe.sha256 "$zip" \
+            --repo "$GITHUB_REPOSITORY" --target main \
+            --title "LN2 Manager ${version}" --notes-file notes.md
+
+      - name: Remove the publish branch
+        if: always()
+        run: git push origin --delete publish
